@@ -85,12 +85,27 @@ static int __msg_submit(struct mbox_chan *chan)
 exit:
 	spin_unlock_irqrestore(&chan->lock, flags);
 
-	/* kick start the timer immediately to avoid delays */
-	if (!err && (chan->txdone_method & TXDONE_BY_POLL)) {
-		/* but only if not already active */
-		if (!hrtimer_active(&chan->mbox->poll_hrt))
+	return err;
+}
+
+static void msg_submit(struct mbox_chan *chan)
+{
+	int err = 0;
+
+	/*
+	 * If the controller returns -EAGAIN, then it means, our spinlock
+	 * here is preventing the controller from receiving its interrupt,
+	 * that would help clear the controller channels that are currently
+	 * blocked waiting on the interrupt response.
+	 * Retry again.
+	 */
+	do {
+		err = __msg_submit(chan);
+	} while (err == -EAGAIN);
+
+	if (!err && (chan->txdone_method & TXDONE_BY_POLL))
+		/* kick start the timer immediately to avoid delays */
 			hrtimer_start(&chan->mbox->poll_hrt, 0, HRTIMER_MODE_REL);
-	}
 }
 
 static void tx_tick(struct mbox_chan *chan, int r)
