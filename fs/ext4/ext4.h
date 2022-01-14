@@ -2420,7 +2420,6 @@ static inline int ext4_fname_setup_filename(struct inode *dir,
 		return err;
 
 	ext4_fname_from_fscrypt_name(fname, &name);
-
 #ifdef CONFIG_UNICODE
 	err = ext4_fname_setup_ci_filename(dir, iname, fname);
 #endif
@@ -2463,6 +2462,7 @@ static inline void ext4_fname_free_filename(struct ext4_filename *fname)
 #endif
 }
 #else /* !CONFIG_FS_ENCRYPTION */
+
 static inline int ext4_fname_setup_filename(struct inode *dir,
 					    const struct qstr *iname,
 					    int lookup,
