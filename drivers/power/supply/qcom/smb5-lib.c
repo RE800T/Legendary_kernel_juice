@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+/// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2020 XiaoMi, Inc.
@@ -33,7 +33,6 @@
 
 #define smblib_dbg(chg, reason, fmt, ...)			\
 	do { } while (0)
-#endif
 
 #define typec_rp_med_high(chg, typec_mode)			\
 	((typec_mode == POWER_SUPPLY_TYPEC_SOURCE_MEDIUM	\
