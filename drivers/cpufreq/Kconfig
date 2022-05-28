@@ -239,7 +239,6 @@ config CPU_FREQ_DEFAULT_BIG_MIN
 
 	  If in doubt, say 0 to use the hardware's minimum frequency.
 
-endif
 
 comment "CPU frequency scaling drivers"
 
