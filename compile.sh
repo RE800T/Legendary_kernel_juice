@@ -1,5 +1,3 @@
-ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
-
 echo "Cloning dependencies"
 git clone --depth=1 https://github.com/kdrag0n/proton-clang ~/toolchain/clang
 git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 ~/toolchain/gcc
@@ -60,7 +58,7 @@ zipping() {
     cd ${HOME}/toolchain/AnyKernel3 || exit 1
     cp ${KERNEL_DIR}/out/arch/arm64/boot/Image .
     rm -rf *.zip
-    zip -r9 LEGENDARY-KERNEL-RC3-Stage-X.zip *
+    zip -r9 OEM.zip *
     cd ..
 }
 

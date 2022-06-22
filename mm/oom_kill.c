@@ -104,7 +104,7 @@ static bool __maybe_unused ulmk_kill_possible(void)
 	struct task_struct *tsk;
 	bool ret = false;
 
-	rcu_read_lock();
+rcu_read_lock();
 	for_each_process(tsk) {
 		if (tsk->flags & PF_KTHREAD)
 			continue;
@@ -151,7 +151,7 @@ bool should_ulmk_retry(gfp_t gfp_mask)
 	if (!sysctl_panic_on_oom)
 		return false;
 
-	if (gfp_mask & __GFP_RETRY_MAYFAIL)
+if (gfp_mask & __GFP_RETRY_MAYFAIL)
 		return false;
 
 	/* Someone else is already checking. */

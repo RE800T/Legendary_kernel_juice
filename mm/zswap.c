@@ -80,22 +80,22 @@ static u64 zswap_duplicate_entry;
 
 #define ZSWAP_PARAM_UNSET ""
 
-/* Enable/disable zswap (disabled by default) */
-static bool zswap_enabled;
+/* Enable/disable zswap (enabled by default) */
+static bool zswap_enabled = 1;
 static int zswap_enabled_param_set(const char *,
 				   const struct kernel_param *);
-static struct kernel_param_ops zswap_enabled_param_ops = {
+static const struct kernel_param_ops zswap_enabled_param_ops = {
 	.set =		zswap_enabled_param_set,
 	.get =		param_get_bool,
 };
 module_param_cb(enabled, &zswap_enabled_param_ops, &zswap_enabled, 0644);
 
 /* Crypto compressor to use */
-#define ZSWAP_COMPRESSOR_DEFAULT "lzo"
+#define ZSWAP_COMPRESSOR_DEFAULT "lz4"
 static char *zswap_compressor = ZSWAP_COMPRESSOR_DEFAULT;
 static int zswap_compressor_param_set(const char *,
 				      const struct kernel_param *);
-static struct kernel_param_ops zswap_compressor_param_ops = {
+static const struct kernel_param_ops zswap_compressor_param_ops = {
 	.set =		zswap_compressor_param_set,
 	.get =		param_get_charp,
 	.free =		param_free_charp,
@@ -104,10 +104,10 @@ module_param_cb(compressor, &zswap_compressor_param_ops,
 		&zswap_compressor, 0644);
 
 /* Compressed storage zpool to use */
-#define ZSWAP_ZPOOL_DEFAULT "zbud"
+#define ZSWAP_ZPOOL_DEFAULT "zsmalloc"
 static char *zswap_zpool_type = ZSWAP_ZPOOL_DEFAULT;
 static int zswap_zpool_param_set(const char *, const struct kernel_param *);
-static struct kernel_param_ops zswap_zpool_param_ops = {
+static const struct kernel_param_ops zswap_zpool_param_ops = {
 	.set =		zswap_zpool_param_set,
 	.get =		param_get_charp,
 	.free =		param_free_charp,
@@ -122,6 +122,9 @@ module_param_named(max_pool_percent, zswap_max_pool_percent, uint, 0644);
 static bool zswap_same_filled_pages_enabled = true;
 module_param_named(same_filled_pages_enabled, zswap_same_filled_pages_enabled,
 		   bool, 0644);
+
+/* zpool is shared by all of zswap backend  */
+static struct zpool *zswap_pool;
 
 /*********************************
 * data structures
@@ -258,7 +261,7 @@ static struct zswap_entry *zswap_entry_cache_alloc(gfp_t gfp)
 {
 	struct zswap_entry *entry;
 	entry = kmem_cache_alloc(zswap_entry_cache, gfp);
-	if (!entry)
+	if (unlikely(!entry))
 		return NULL;
 	entry->refcount = 1;
 	RB_CLEAR_NODE(&entry->rbnode);
@@ -413,7 +416,7 @@ static int zswap_cpu_comp_prepare(unsigned int cpu, struct hlist_node *node)
 		return 0;
 
 	tfm = crypto_alloc_comp(pool->tfm_name, 0, 0);
-	if (IS_ERR_OR_NULL(tfm)) {
+	if (IS_ERR(tfm)) {
 		pr_err("could not alloc crypto comp %s : %ld\n",
 		       pool->tfm_name, PTR_ERR(tfm));
 		return -ENOMEM;
@@ -540,6 +543,7 @@ static struct zswap_pool *zswap_pool_create(char *type, char *compressor)
 		pr_err("%s zpool not available\n", type);
 		goto error;
 	}
+	zswap_pool = pool->zpool;
 	pr_debug("using %s zpool\n", zpool_get_type(pool->zpool));
 
 	strlcpy(pool->tfm_name, compressor, sizeof(pool->tfm_name));
@@ -567,8 +571,10 @@ static struct zswap_pool *zswap_pool_create(char *type, char *compressor)
 
 error:
 	free_percpu(pool->tfm);
-	if (pool->zpool)
+	if (pool->zpool) {
 		zpool_destroy_pool(pool->zpool);
+		zswap_pool = NULL;
+	}
 	kfree(pool);
 	return NULL;
 }
@@ -620,6 +626,7 @@ static void zswap_pool_destroy(struct zswap_pool *pool)
 	cpuhp_state_remove_instance(CPUHP_MM_ZSWP_POOL_PREPARE, &pool->node);
 	free_percpu(pool->tfm);
 	zpool_destroy_pool(pool->zpool);
+	zswap_pool = NULL;
 	kfree(pool);
 }
 
@@ -1039,7 +1046,7 @@ static int zswap_frontswap_store(unsigned type, pgoff_t offset,
 
 	/* allocate entry */
 	entry = zswap_entry_cache_alloc(GFP_KERNEL);
-	if (!entry) {
+	if (unlikely(!entry)) {
 		zswap_reject_kmemcache_fail++;
 		ret = -ENOMEM;
 		goto reject;
@@ -1180,6 +1187,15 @@ freeentry:
 	spin_unlock(&tree->lock);
 
 	return 0;
+}
+
+void zswap_compact(void) {
+	if (!zswap_pool)
+		return;
+
+	pr_info("zswap_compact++\n");
+	zpool_compact(zswap_pool);
+	pr_info("zswap_compact--\n");
 }
 
 /* frees an entry in zswap */

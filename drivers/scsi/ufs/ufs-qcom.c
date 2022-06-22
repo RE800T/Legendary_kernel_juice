@@ -2603,7 +2603,6 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 		goto out;
 	}
 	mask <<= offset;
-
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	if (reg) {
 		ufshcd_rmwl(host->hba, TEST_BUS_SEL,
