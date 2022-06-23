@@ -563,11 +563,7 @@ static int __init reboot_setup(char *str)
 				reboot_cpu = 0;
 				break;
 			}
-<<<<<<< HEAD
-=======
 			break;
-
->>>>>>> 5b33bbd83e3e189244e3898afe28030f0e91d184
 		case 'g':
 			*mode = REBOOT_GPIO;
 			break;
